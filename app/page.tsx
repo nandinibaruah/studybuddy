@@ -3,53 +3,63 @@
 import { useState, useEffect } from 'react';
 
 const HomePage = () => {
-  const [tasks, setTasks] = useState<{ name: string; timeSpent: number }[]>([]);
+  const [tasks, setTasks] = useState<{ name: string; timeSpent: number; isActive: boolean; seconds: number; completed: boolean }[]>([]);
   const [newTask, setNewTask] = useState("");
-  const [activeTaskIndex, setActiveTaskIndex] = useState<number | null>(null);
-  const [timerSeconds, setTimerSeconds] = useState(0);
-  const [isTimerActive, setIsTimerActive] = useState(false);
 
   const addTask = () => {
     if (newTask.trim()) {
-      setTasks([...tasks, { name: newTask, timeSpent: 0 }]);
+      setTasks([...tasks, { name: newTask, timeSpent: 0, isActive: false, seconds: 0, completed: false }]);
       setNewTask("");
     }
+  };
+
+  const startTask = (index: number) => {
+    const updatedTasks = tasks.map((task, i) => 
+      i === index ? { ...task, isActive: true } : task
+    );
+    setTasks(updatedTasks);
+  };
+
+  const stopTask = (index: number) => {
+    const updatedTasks = tasks.map((task, i) => 
+      i === index 
+        ? { ...task, isActive: false, timeSpent: task.seconds, completed: task.completed } 
+        : task
+    );
+    setTasks(updatedTasks);
+  };
+
+  const toggleCompletion = (index: number) => {
+    const updatedTasks = tasks.map((task, i) => 
+      i === index ? { ...task, completed: !task.completed } : task
+    );
+    setTasks(updatedTasks);
   };
 
   const deleteTask = (index: number) => {
     setTasks(tasks.filter((_, i) => i !== index));
   };
 
-  const startTask = (index: number) => {
-    if (activeTaskIndex !== null) {
-      // Stop the previous task's timer
-      stopTask();
-    }
-    setActiveTaskIndex(index);
-    setIsTimerActive(true);
-  };
-
-  const stopTask = () => {
-    if (activeTaskIndex !== null) {
-      const updatedTasks = tasks.map((task, index) =>
-        index === activeTaskIndex ? { ...task, timeSpent: timerSeconds } : task
-      );
-      setTasks(updatedTasks);
-    }
-    setIsTimerActive(false);
-    setTimerSeconds(0);
-    setActiveTaskIndex(null);
-  };
-
   useEffect(() => {
-    let interval: NodeJS.Timeout;
-    if (isTimerActive) {
-      interval = setInterval(() => {
-        setTimerSeconds((prev) => prev + 1);
-      }, 1000);
-    }
-    return () => clearInterval(interval);
-  }, [isTimerActive]);
+    const intervals = tasks.map((task, index) => {
+      if (task.isActive) {
+        return setInterval(() => {
+          setTasks((prevTasks) => {
+            const updatedTasks = [...prevTasks];
+            updatedTasks[index].seconds += 1; // Increment the seconds for the active task
+            return updatedTasks;
+          });
+        }, 1000);
+      }
+      return null;
+    });
+
+    return () => {
+      intervals.forEach((interval) => {
+        if (interval) clearInterval(interval);
+      });
+    };
+  }, [tasks]);
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-gray-100 p-4">
@@ -75,12 +85,29 @@ const HomePage = () => {
             <input
               type="checkbox"
               className="accent-blue-500"
-              onClick={() => startTask(index)}
+              checked={task.completed}
+              onChange={() => toggleCompletion(index)}
             />
-            <span>{task.name} - {task.timeSpent}s</span>
+            <span className={`flex-grow ${task.completed ? 'line-through text-gray-400' : ''}`}>
+              {task.name} - {task.timeSpent + task.seconds}s
+            </span>
+            <button
+              onClick={() => startTask(index)}
+              className="bg-green-500 text-white px-2 py-1 rounded-md hover:bg-green-600"
+              disabled={task.isActive || task.completed}
+            >
+              Start
+            </button>
+            <button
+              onClick={() => stopTask(index)}
+              className="bg-red-500 text-white px-2 py-1 rounded-md hover:bg-red-600"
+              disabled={!task.isActive || task.completed}
+            >
+              Stop
+            </button>
             <button
               onClick={() => deleteTask(index)}
-              className="bg-red-500 text-white px-2 py-1 rounded-md hover:bg-red-600"
+              className="bg-gray-500 text-white px-2 py-1 rounded-md hover:bg-gray-600"
             >
               Delete
             </button>
