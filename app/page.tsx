@@ -1,56 +1,89 @@
-// page.tsx
 "use client";
 
 import { useState, useEffect } from 'react';
-import { FaPlay, FaPause, FaRedo, FaPlus, FaCheckCircle } from 'react-icons/fa';
 
 const HomePage = () => {
-  const [tasks, setTasks] = useState<{ text: string; completed: boolean }[]>([]);
+  const [tasks, setTasks] = useState<{ name: string; timeSpent: number }[]>([]);
   const [newTask, setNewTask] = useState("");
+  const [activeTaskIndex, setActiveTaskIndex] = useState<number | null>(null);
+  const [timerSeconds, setTimerSeconds] = useState(0);
+  const [isTimerActive, setIsTimerActive] = useState(false);
 
   const addTask = () => {
     if (newTask.trim()) {
-      setTasks([...tasks, { text: newTask, completed: false }]);
+      setTasks([...tasks, { name: newTask, timeSpent: 0 }]);
       setNewTask("");
     }
   };
 
-  const toggleTaskCompletion = (index: number) => {
-    setTasks(tasks.map((task, i) =>
-      i === index ? { ...task, completed: !task.completed } : task
-    ));
+  const deleteTask = (index: number) => {
+    setTasks(tasks.filter((_, i) => i !== index));
   };
 
+  const startTask = (index: number) => {
+    if (activeTaskIndex !== null) {
+      // Stop the previous task's timer
+      stopTask();
+    }
+    setActiveTaskIndex(index);
+    setIsTimerActive(true);
+  };
+
+  const stopTask = () => {
+    if (activeTaskIndex !== null) {
+      const updatedTasks = tasks.map((task, index) =>
+        index === activeTaskIndex ? { ...task, timeSpent: timerSeconds } : task
+      );
+      setTasks(updatedTasks);
+    }
+    setIsTimerActive(false);
+    setTimerSeconds(0);
+    setActiveTaskIndex(null);
+  };
+
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (isTimerActive) {
+      interval = setInterval(() => {
+        setTimerSeconds((prev) => prev + 1);
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [isTimerActive]);
+
   return (
-    <div className="p-4 max-w-lg mx-auto bg-white rounded-lg shadow-md mt-8">
-      <h1 className="text-2xl font-semibold text-center mb-4">Study Buddy - To-Do List</h1>
-      <div className="flex mb-4">
+    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-gray-100 p-4">
+      <h1 className="text-3xl font-bold mb-4">Study Buddy - To-Do List</h1>
+      <div className="flex items-center mb-4 space-x-2">
         <input
           type="text"
           value={newTask}
           onChange={(e) => setNewTask(e.target.value)}
           placeholder="New task..."
-          className="w-full p-2 border border-gray-300 rounded-l-md"
+          className="px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
-        <button onClick={addTask} className="p-2 bg-blue-500 text-white rounded-r-md hover:bg-blue-600">
-          <FaPlus />
+        <button
+          onClick={addTask}
+          className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600"
+        >
+          +
         </button>
       </div>
-      <ul className="space-y-2">
+      <ul className="space-y-2 w-64">
         {tasks.map((task, index) => (
-          <li
-            key={index}
-            className={`flex items-center p-2 border rounded-md ${
-              task.completed ? "line-through text-gray-400" : ""
-            }`}
-          >
+          <li key={index} className="flex items-center space-x-2">
             <input
               type="checkbox"
-              checked={task.completed}
-              onChange={() => toggleTaskCompletion(index)}
-              className="mr-2"
+              className="accent-blue-500"
+              onClick={() => startTask(index)}
             />
-            <span className="flex-1">{task.text}</span>
+            <span>{task.name} - {task.timeSpent}s</span>
+            <button
+              onClick={() => deleteTask(index)}
+              className="bg-red-500 text-white px-2 py-1 rounded-md hover:bg-red-600"
+            >
+              Delete
+            </button>
           </li>
         ))}
       </ul>
@@ -58,62 +91,12 @@ const HomePage = () => {
   );
 };
 
-const Timer = () => {
-  const [seconds, setSeconds] = useState(0);
-  const [isActive, setIsActive] = useState(false);
-
-  useEffect(() => {
-    let interval: NodeJS.Timeout;
-    if (isActive) {
-      interval = setInterval(() => {
-        setSeconds((prev) => prev + 1);
-      }, 1000);
-    } else if (!isActive && seconds !== 0) {
-      clearInterval(interval);
-    }
-    return () => clearInterval(interval);
-  }, [isActive, seconds]);
-
-  const reset = () => {
-    setSeconds(0);
-    setIsActive(false);
-  };
-
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
-  };
-
+const App = () => {
   return (
-    <div className="p-4 max-w-lg mx-auto bg-white rounded-lg shadow-md mt-4">
-      <h2 className="text-2xl font-semibold text-center mb-4">Timer</h2>
-      <div className="text-4xl font-bold text-center mb-4">{formatTime(seconds)}</div>
-      <div className="flex justify-center space-x-4">
-        <button
-          onClick={() => setIsActive(!isActive)}
-          className={`p-3 rounded-full ${
-            isActive ? "bg-red-500" : "bg-green-500"
-          } text-white hover:opacity-90`}
-        >
-          {isActive ? <FaPause /> : <FaPlay />}
-        </button>
-        <button onClick={reset} className="p-3 bg-gray-500 rounded-full text-white hover:opacity-90">
-          <FaRedo />
-        </button>
-      </div>
-    </div>
-  );
-};
-
-// Main component that renders both HomePage and Timer
-const MainPage = () => {
-  return (
-    <div className="min-h-screen bg-gray-100 flex flex-col items-center p-4">
+    <div className="flex flex-col items-center justify-center min-h-screen p-4 bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-gray-100">
       <HomePage />
-      <Timer />
     </div>
   );
 };
 
-export default MainPage;
+export default App;
